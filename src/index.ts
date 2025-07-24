@@ -1,44 +1,24 @@
-import * as rrweb from 'rrweb';
+// Core classes and types
+export { SwingRecorder } from "./recorder";
+export { NextJSIntegration } from "./nextjs-integration";
+export type {
+  SwingConfig,
+  SwingOptions,
+  SwingEvent,
+  SwingSession,
+} from "./types";
 
-export interface RecorderOptions {
-  projectId: string;
-  uploadUrl: string;
-  bufferSeconds?: number;
-}
+// Version info
+export const version = "1.0.0";
 
-export function initRecorder(options: RecorderOptions): void {
-  const { projectId, uploadUrl, bufferSeconds = 5 } = options;
-  let events: any[] = [];
+// Utility functions
+import type { SwingConfig } from "./types";
+import { SwingRecorder } from "./recorder";
 
-  rrweb.record({
-    emit(event: any) {
-      events.push(event);
-    },
-  });
+export const createSwingRecorder = (config: SwingConfig): SwingRecorder => {
+  return new SwingRecorder(config);
+};
 
-  setInterval(() => {
-    if (events.length === 0) return;
-
-    const payload = {
-      projectId,
-      url: window.location.href,
-      timestamp: new Date().toISOString(),
-      events,
-    };
-
-    if (navigator.sendBeacon) {
-      const blob = new Blob([JSON.stringify(payload)], {
-        type: 'application/json',
-      });
-      navigator.sendBeacon(uploadUrl, blob);
-    } else {
-      fetch(uploadUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-    }
-
-    events = [];
-  }, bufferSeconds * 1000);
-}
+// Re-export the types for convenience
+export type { SwingConfig as Config } from "./types";
+export type { SwingOptions as Options } from "./types";
