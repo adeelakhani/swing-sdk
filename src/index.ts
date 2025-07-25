@@ -8,7 +8,7 @@ interface SwingSDKOptions {
   apiKey: string;
   userId?: string;
   sessionId?: string;
-  rrwebOptions?: Partial<recordOptions<eventWithTime>>;
+  // rrwebOptions?: Partial<recordOptions<eventWithTime>>; // Disabled for now, enable later if needed
 }
 
 // Prevent double-initialization
@@ -27,7 +27,7 @@ function SwingSDK(options: SwingSDKOptions) {
     apiKey,
     userId,
     sessionId,
-    rrwebOptions = {},
+    // rrwebOptions = {}, // Disabled for now, enable later if needed
   } = options;
 
   const endpoint = process.env.BACKEND_URL;
@@ -47,7 +47,7 @@ function SwingSDK(options: SwingSDKOptions) {
     emit(event: eventWithTime) {
       events.push(event);
     },
-    ...(rrwebOptions as Partial<recordOptions<eventWithTime>>),
+    // ...(rrwebOptions as Partial<recordOptions<eventWithTime>>), // Disabled for now, enable later if needed
   });
 
   // Helper to send events

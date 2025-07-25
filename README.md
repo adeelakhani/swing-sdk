@@ -6,7 +6,7 @@ SwingSDK is a next-generation analytics SDK powered by [rrweb](https://github.co
 
 ---
 
-## Installation
+## Usage in React
 
 Install via npm or yarn:
 
@@ -18,7 +18,6 @@ yarn add swingsdk
 
 ---
 
-## Usage in React
 
 ### 1. Wrap your app with `<SwingProvider>`
 
@@ -52,35 +51,13 @@ function MyComponent() {
 
 | Name         | Type     | Required | Description |
 |--------------|----------|----------|-------------|
-| apiKey       | string   | Yes      | Your project or API key |
+| apiKey       | string   | Yes      | Your project or API key (provided by us) |
 | userId       | string   | No       | User identifier |
 | sessionId    | string   | No       | Session identifier |
-| rrwebOptions | object   | No       | rrweb recording options |
 
 > **Note:** The backend endpoint is set internally by the SDK. You do **not** need to provide it or manage session replays yourself.
-
----
-
-## How to Build and Publish (for SDK maintainers)
-
-1. **Build the SDK**
-   ```bash
-   cd swingsdk
-   npm install
-   npm run build
-   ```
-   This will output bundled files to `dist/`.
-
-2. **Publish to npm (optional)**
-   - Update `package.json` with your details.
-   - Login to npm:
-     ```bash
-     npm login
-     ```
-   - Publish:
-     ```bash
-     npm publish
-     ```
+> 
+> *Advanced recording options may be available in the future, but are currently not user-configurable.*
 
 ---
 
@@ -96,7 +73,7 @@ function MyComponent() {
 > The SDK uses `navigator.sendBeacon` on unload for reliability.
 
 **Q: Can I customize rrweb recording?**
-> Yes, pass any rrweb options via the `rrwebOptions` prop.
+> Not at this time. Advanced recording options may be available in the future.
 
 **Q: How do I stop and flush events manually?**
 > Use the `useSwingSDK` hook to access the SDK instance and call its stop method if needed.
