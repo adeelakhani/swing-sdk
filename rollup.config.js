@@ -1,9 +1,11 @@
 import typescript from '@rollup/plugin-typescript';
 import resolve from '@rollup/plugin-node-resolve';
 import { terser } from 'rollup-plugin-terser';
+import replace from '@rollup/plugin-replace';
 
 export default {
   input: 'src/index.ts',
+  external: ['react', 'react-dom'],
   output: [
     {
       file: 'dist/index.cjs.js',
@@ -16,9 +18,20 @@ export default {
     {
       file: 'dist/index.umd.min.js',
       format: 'umd',
-      name: 'ReplaySDK',
+      name: 'SwingSDK',
+      globals: {
+        react: 'React',
+      },
       plugins: [terser()],
     },
   ],
-  plugins: [resolve(), typescript()],
+  plugins: [
+    replace({
+      'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV),
+      'process.env.BACKEND_URL': JSON.stringify(process.env.BACKEND_URL),
+      preventAssignment: true,
+    }),
+    resolve(),
+    typescript(),
+  ],
 };
