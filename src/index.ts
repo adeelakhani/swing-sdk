@@ -60,6 +60,7 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   stopRecording = rrweb.record({
     emit(event: eventWithTime) {
       events.push(event);
+      console.log('SwingSDK: Event captured:', event.type, 'at', new Date(event.timestamp).toLocaleTimeString());
     },
     // Capture full snapshots more frequently
     checkoutEveryNth: 1,
@@ -77,6 +78,8 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     recordCrossOriginIframes: true,
     // ...(rrwebOptions as Partial<recordOptions<eventWithTime>>), // Disabled for now, enable later if needed
   });
+
+  console.log('SwingSDK: Recording started');
 
   // Force a full snapshot after a short delay to ensure we capture the rendered content
   setTimeout(() => {
