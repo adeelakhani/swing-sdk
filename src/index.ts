@@ -1,11 +1,14 @@
 import * as rrweb from 'rrweb';
+// import axios from 'axios'; // Remove axios
 import type { eventWithTime } from '@rrweb/types/dist';
+import type { recordOptions } from 'rrweb/typings/types';
 
 // SDK options interface
 interface SwingSDKOptions {
   apiKey: string;
   userId?: string;
   sessionId?: string;
+  // rrwebOptions?: Partial<recordOptions<eventWithTime>>; // Disabled for now, enable later if needed
 }
 
 // Prevent double-initialization
@@ -32,6 +35,7 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     apiKey,
     userId,
     sessionId,
+    // rrwebOptions = {}, // Disabled for now, enable later if needed
   } = options;
 
   const endpoint = process.env.BACKEND_URL;
@@ -110,8 +114,6 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
-      // Only clear events on successful upload
-      events = [];
       console.log('SwingSDK: Events sent successfully');
     } catch (err) {
       if (typeof window !== 'undefined' && window.console) {
@@ -123,8 +125,8 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
           stack: (err as Error).stack
         });
       }
-      // Don't clear events on failure - they'll be retried in the next batch
     }
+    events = [];
   }
 
   // Send data every 5 seconds
