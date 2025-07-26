@@ -1,11 +1,14 @@
 import * as rrweb from 'rrweb';
+// import axios from 'axios'; // Remove axios
 import type { eventWithTime } from '@rrweb/types/dist';
+import type { recordOptions } from 'rrweb/typings/types';
 
 // SDK options interface
 interface SwingSDKOptions {
   apiKey: string;
   userId?: string;
   sessionId?: string;
+  // rrwebOptions?: Partial<recordOptions<eventWithTime>>; // Disabled for now, enable later if needed
 }
 
 // Prevent double-initialization
@@ -32,24 +35,50 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     apiKey,
     userId,
     sessionId,
+    // rrwebOptions = {}, // Disabled for now, enable later if needed
   } = options;
 
-  const endpoint = process.env.BACKEND_URL || 'http://localhost:8000/upload';
+  const endpoint = process.env.BACKEND_URL;
+  if (!endpoint) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('SwingSDK: endpoint is required in production.');
+    }
+  }
+  const resolvedEndpoint = endpoint || 'http://localhost:8000/upload';
   
-  console.log('SwingSDK: Using endpoint:', endpoint);
+  // Debug the endpoint
+  if (typeof window !== 'undefined' && window.console) {
+    console.log('SwingSDK: Using endpoint:', resolvedEndpoint);
+    console.log('SwingSDK: BACKEND_URL env var:', process.env.BACKEND_URL);
+  }
 
   let events: eventWithTime[] = [];
   let stopped = false;
   let stopRecording: (() => void) | undefined;
 
-  // Simple rrweb recording - just like the working example
+  // Start recording with minimal capture to reduce data load
   stopRecording = rrweb.record({
     emit(event: eventWithTime) {
-      events.push(event);
-      console.log('SwingSDK: Event captured:', event.type, 'at', new Date(event.timestamp).toLocaleTimeString());
+      // Only capture essential events to reduce payload size
+      if (event.type === 2 || event.type === 3) { // FullSnapshot or IncrementalSnapshot
+        events.push(event);
+        console.log('SwingSDK: Event captured:', event.type, 'at', new Date(event.timestamp).toLocaleTimeString());
+      }
     },
-    checkoutEveryNth: 1,
-    checkoutEveryNms: 1000,
+    // Much less frequent capture
+    checkoutEveryNth: 10,
+    checkoutEveryNms: 5000, // 5 seconds instead of 500ms
+    // Disable heavy features
+    recordCanvas: false,
+    collectFonts: false,
+    inlineStylesheet: false,
+    // Mask sensitive data
+    maskAllInputs: true,
+    maskInputOptions: {
+      password: true,
+    },
+    // Disable cross-origin iframes
+    recordCrossOriginIframes: false,
   });
 
   console.log('SwingSDK: Recording started');
@@ -58,25 +87,37 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   async function sendEvents() {
     if (events.length === 0) return;
     
+    // Limit payload size by taking only the most recent events
+    const maxEvents = 20; // Limit to 20 events per batch
+    const eventsToSend = events.slice(-maxEvents);
+    
     const payload = {
       projectId: apiKey,
       userId,
       sessionId,
       url: window.location.href,
       timestamp: new Date().toISOString(),
-      events: events,
+      events: eventsToSend,
     };
     
     const payloadSize = JSON.stringify(payload).length;
-    console.log('SwingSDK: Attempting to send events to:', endpoint);
+    console.log('SwingSDK: Attempting to send events to:', resolvedEndpoint);
     console.log('SwingSDK: Payload size:', payloadSize, 'bytes');
-    console.log('SwingSDK: Events to send:', events.length);
+    console.log('SwingSDK: Events to send:', eventsToSend.length, 'out of', events.length, 'total');
+    
+    // Don't send if payload is too large
+    if (payloadSize > 1000000) { // 1MB limit
+      console.warn('SwingSDK: Payload too large, skipping send');
+      events = [];
+      return;
+    }
     
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetch(resolvedEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
+        keepalive: true,
       });
       
       if (!response.ok) {
@@ -85,15 +126,23 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
       
       console.log('SwingSDK: Events sent successfully');
     } catch (err) {
-      console.error('SwingSDK upload failed', err);
+      if (typeof window !== 'undefined' && window.console) {
+        console.error('SwingSDK upload failed', err);
+        console.error('SwingSDK: Endpoint was:', resolvedEndpoint);
+        console.error('SwingSDK: Error details:', {
+          name: (err as Error).name,
+          message: (err as Error).message,
+          stack: (err as Error).stack
+        });
+      }
     }
     events = [];
   }
 
-  // Send data every 10 seconds
+  // Send data every 5 seconds
   const interval = setInterval(() => {
     if (!stopped) sendEvents();
-  }, 10000);
+  }, 5000);
 
   // Flush on unload using sendBeacon
   function handleUnload() {
@@ -108,9 +157,12 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
         events,
       };
       try {
-        navigator.sendBeacon(endpoint, JSON.stringify(payload));
+        navigator.sendBeacon(resolvedEndpoint, JSON.stringify(payload));
       } catch (e) {
-        console.error('SwingSDK sendBeacon failed', e);
+        // fallback: best effort
+        if (typeof window !== 'undefined' && window.console) {
+          console.error('SwingSDK sendBeacon failed', e);
+        }
       }
       events = [];
     }
