@@ -42,27 +42,50 @@ function SwingSDK(options: SwingSDKOptions) {
   let stopped = false;
   let stopRecording: (() => void) | undefined;
 
-  // Start recording with a small delay to ensure React has rendered
+  // Start recording immediately to capture the initial state
+  stopRecording = rrweb.record({
+    emit(event: eventWithTime) {
+      events.push(event);
+    },
+    // Capture full snapshots more frequently
+    checkoutEveryNth: 1,
+    checkoutEveryNms: 500,
+    // Better capture for React/Next.js apps
+    recordCanvas: true,
+    collectFonts: true,
+    inlineStylesheet: true,
+    // Capture more comprehensive DOM state
+    maskAllInputs: false,
+    maskInputOptions: {
+      password: true,
+    },
+    // Ensure we capture the initial state
+    recordCrossOriginIframes: true,
+    // ...(rrwebOptions as Partial<recordOptions<eventWithTime>>), // Disabled for now, enable later if needed
+  });
+
+  // Force a full snapshot after a short delay to ensure we capture the rendered content
   setTimeout(() => {
-    stopRecording = rrweb.record({
-      emit(event: eventWithTime) {
-        events.push(event);
-      },
-      // Ensure we capture a full snapshot
-      checkoutEveryNth: 1,
-      checkoutEveryNms: 1000,
-      // Better capture for React/Next.js apps
-      recordCanvas: true,
-      collectFonts: true,
-      inlineStylesheet: true,
-      // Capture more comprehensive DOM state
-      maskAllInputs: false,
-      maskInputOptions: {
-        password: true,
-      },
-      // ...(rrwebOptions as Partial<recordOptions<eventWithTime>>), // Disabled for now, enable later if needed
-    });
-  }, 100); // Small delay to ensure React has rendered
+    if (stopRecording && !stopped) {
+      // Trigger a manual full snapshot
+      const manualSnapshot = rrweb.record({
+        emit(event: eventWithTime) {
+          if (event.type === 2) { // FullSnapshot
+            events.push(event);
+          }
+        },
+        checkoutEveryNth: 1,
+        checkoutEveryNms: 100,
+      });
+      
+      // Stop the manual recording after capturing the snapshot
+      setTimeout(() => {
+        if (manualSnapshot) {
+          manualSnapshot();
+        }
+      }, 100);
+    }
+  }, 200);
 
   // Helper to send events
   async function sendEvents() {
