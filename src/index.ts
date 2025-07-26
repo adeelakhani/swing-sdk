@@ -45,6 +45,12 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     }
   }
   const resolvedEndpoint = endpoint || 'http://localhost:8000/upload';
+  
+  // Debug the endpoint
+  if (typeof window !== 'undefined' && window.console) {
+    console.log('SwingSDK: Using endpoint:', resolvedEndpoint);
+    console.log('SwingSDK: BACKEND_URL env var:', process.env.BACKEND_URL);
+  }
 
   let events: eventWithTime[] = [];
   let stopped = false;
@@ -170,7 +176,11 @@ declare global {
   interface Window { SwingSDK?: typeof SwingSDK }
 }
 if (typeof window !== 'undefined') {
+  console.log('SwingSDK: Exposing to window object');
   window.SwingSDK = SwingSDK;
+  console.log('SwingSDK: Available on window:', !!window.SwingSDK);
+} else {
+  console.log('SwingSDK: Window not available (server-side)');
 }
 
 // Export React components
