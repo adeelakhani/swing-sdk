@@ -47,6 +47,9 @@ function SwingSDK(options: SwingSDKOptions) {
     emit(event: eventWithTime) {
       events.push(event);
     },
+    // Ensure we capture a full snapshot
+    checkoutEveryNth: 1,
+    checkoutEveryNms: 1000,
     // ...(rrwebOptions as Partial<recordOptions<eventWithTime>>), // Disabled for now, enable later if needed
   });
 
