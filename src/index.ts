@@ -78,9 +78,8 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   async function sendEvents() {
     if (events.length === 0) return;
     
-    // Limit payload size by taking only the most recent events
-    const maxEvents = 100; // Limit to 100 events per batch
-    const eventsToSend = events.slice(-maxEvents);
+    // Send all events without size limits
+    const eventsToSend = events;
     
     const payload = {
       projectId: apiKey,
@@ -96,19 +95,12 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     console.log('SwingSDK: Payload size:', payloadSize, 'bytes');
     console.log('SwingSDK: Events to send:', eventsToSend.length, 'out of', events.length, 'total');
     
-    // Don't send if payload is too large
-    if (payloadSize > 1000000) { // 1MB limit
-      console.warn('SwingSDK: Payload too large, skipping send');
-      events = [];
-      return;
-    }
-    
     try {
       const response = await fetch(resolvedEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        keepalive: true,
+        // keepalive: true,
       });
       
       if (!response.ok) {
