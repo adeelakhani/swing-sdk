@@ -1,14 +1,11 @@
 import * as rrweb from 'rrweb';
-// import axios from 'axios'; // Remove axios
 import type { eventWithTime } from '@rrweb/types/dist';
-import type { recordOptions } from 'rrweb/typings/types';
 
 // SDK options interface
 interface SwingSDKOptions {
   apiKey: string;
   userId?: string;
   sessionId?: string;
-  // rrwebOptions?: Partial<recordOptions<eventWithTime>>; // Disabled for now, enable later if needed
 }
 
 // Prevent double-initialization
@@ -35,82 +32,31 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     apiKey,
     userId,
     sessionId,
-    // rrwebOptions = {}, // Disabled for now, enable later if needed
   } = options;
 
-  const endpoint = process.env.BACKEND_URL;
-  if (!endpoint) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('SwingSDK: endpoint is required in production.');
-    }
-  }
-  const resolvedEndpoint = endpoint || 'http://localhost:8000/upload';
+  const endpoint = process.env.BACKEND_URL || 'http://localhost:8000/upload';
   
-  // Debug the endpoint
-  if (typeof window !== 'undefined' && window.console) {
-    console.log('SwingSDK: Using endpoint:', resolvedEndpoint);
-    console.log('SwingSDK: BACKEND_URL env var:', process.env.BACKEND_URL);
-  }
+  console.log('SwingSDK: Using endpoint:', endpoint);
 
   let events: eventWithTime[] = [];
   let stopped = false;
   let stopRecording: (() => void) | undefined;
 
-  // Start recording immediately to capture the initial state
+  // Simple rrweb recording - just like the working example
   stopRecording = rrweb.record({
     emit(event: eventWithTime) {
       events.push(event);
       console.log('SwingSDK: Event captured:', event.type, 'at', new Date(event.timestamp).toLocaleTimeString());
     },
-    // Reduce frequency to prevent massive payloads
-    checkoutEveryNth: 50,
-    checkoutEveryNms: 10000, // 10 seconds instead of 500ms
-    // Disable heavy features for now
-    recordCanvas: false,
-    collectFonts: false,
-    inlineStylesheet: false,
-    // Capture more comprehensive DOM state
-    maskAllInputs: false,
-    maskInputOptions: {
-      password: true,
-    },
-    // Ensure we capture the initial state
-    recordCrossOriginIframes: false,
-    // ...(rrwebOptions as Partial<recordOptions<eventWithTime>>), // Disabled for now, enable later if needed
+    checkoutEveryNth: 1,
+    checkoutEveryNms: 1000,
   });
 
   console.log('SwingSDK: Recording started');
 
-  // Force a full snapshot after a short delay to ensure we capture the rendered content
-  setTimeout(() => {
-    if (stopRecording && !stopped) {
-      // Trigger a manual full snapshot
-      const manualSnapshot = rrweb.record({
-        emit(event: eventWithTime) {
-          if (event.type === 2) { // FullSnapshot
-            events.push(event);
-          }
-        },
-        checkoutEveryNth: 1,
-        checkoutEveryNms: 100,
-      });
-      
-      // Stop the manual recording after capturing the snapshot
-      setTimeout(() => {
-        if (manualSnapshot) {
-          manualSnapshot();
-        }
-      }, 100);
-    }
-  }, 200);
-
   // Helper to send events
   async function sendEvents() {
     if (events.length === 0) return;
-    
-    // Limit payload size by taking only the most recent events
-    const maxEvents = 50; // Limit to 50 events per batch
-    const eventsToSend = events.slice(-maxEvents);
     
     const payload = {
       projectId: apiKey,
@@ -118,27 +64,19 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
       sessionId,
       url: window.location.href,
       timestamp: new Date().toISOString(),
-      events: eventsToSend,
+      events: events,
     };
     
     const payloadSize = JSON.stringify(payload).length;
-    console.log('SwingSDK: Attempting to send events to:', resolvedEndpoint);
+    console.log('SwingSDK: Attempting to send events to:', endpoint);
     console.log('SwingSDK: Payload size:', payloadSize, 'bytes');
-    console.log('SwingSDK: Events to send:', eventsToSend.length, 'out of', events.length, 'total');
-    
-    // Don't send if payload is too large
-    if (payloadSize > 2000000) { // 2MB limit
-      console.warn('SwingSDK: Payload too large, skipping send');
-      events = [];
-      return;
-    }
+    console.log('SwingSDK: Events to send:', events.length);
     
     try {
-      const response = await fetch(resolvedEndpoint, {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
-        keepalive: true,
       });
       
       if (!response.ok) {
@@ -147,23 +85,15 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
       
       console.log('SwingSDK: Events sent successfully');
     } catch (err) {
-      if (typeof window !== 'undefined' && window.console) {
-        console.error('SwingSDK upload failed', err);
-        console.error('SwingSDK: Endpoint was:', resolvedEndpoint);
-        console.error('SwingSDK: Error details:', {
-          name: (err as Error).name,
-          message: (err as Error).message,
-          stack: (err as Error).stack
-        });
-      }
+      console.error('SwingSDK upload failed', err);
     }
     events = [];
   }
 
-  // Send data every 5 seconds
+  // Send data every 10 seconds
   const interval = setInterval(() => {
     if (!stopped) sendEvents();
-  }, 5000);
+  }, 10000);
 
   // Flush on unload using sendBeacon
   function handleUnload() {
@@ -178,12 +108,9 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
         events,
       };
       try {
-        navigator.sendBeacon(resolvedEndpoint, JSON.stringify(payload));
+        navigator.sendBeacon(endpoint, JSON.stringify(payload));
       } catch (e) {
-        // fallback: best effort
-        if (typeof window !== 'undefined' && window.console) {
-          console.error('SwingSDK sendBeacon failed', e);
-        }
+        console.error('SwingSDK sendBeacon failed', e);
       }
       events = [];
     }
