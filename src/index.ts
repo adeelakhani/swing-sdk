@@ -113,15 +113,30 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
       events,
     };
     try {
-      await fetch(resolvedEndpoint, {
+      console.log('SwingSDK: Attempting to send events to:', resolvedEndpoint);
+      console.log('SwingSDK: Payload size:', JSON.stringify(payload).length, 'bytes');
+      
+      const response = await fetch(resolvedEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
         keepalive: true,
       });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      console.log('SwingSDK: Events sent successfully');
     } catch (err) {
       if (typeof window !== 'undefined' && window.console) {
         console.error('SwingSDK upload failed', err);
+        console.error('SwingSDK: Endpoint was:', resolvedEndpoint);
+        console.error('SwingSDK: Error details:', {
+          name: (err as Error).name,
+          message: (err as Error).message,
+          stack: (err as Error).stack
+        });
       }
     }
     events = [];
