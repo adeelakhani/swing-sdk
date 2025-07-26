@@ -56,15 +56,16 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   let stopped = false;
   let stopRecording: (() => void) | undefined;
 
-  // Start recording with minimal settings to ensure full snapshot
+  // Start recording with proper settings for event capture
   stopRecording = rrweb.record({
     emit(event: eventWithTime) {
       events.push(event);
       console.log('SwingSDK: Event captured:', event.type, 'at', new Date(event.timestamp).toLocaleTimeString());
     },
-    // Force immediate full snapshot
-    checkoutEveryNth: 1,
-    checkoutEveryNms: 0, // Force immediate snapshot
+    // Take full snapshot every 100 events (reasonable)
+    checkoutEveryNth: 100,
+    // Take full snapshot every 30 seconds (reasonable)
+    checkoutEveryNms: 30 * 1000, // 30 seconds
     // Disable heavy features to reduce payload size
     recordCanvas: false,
     collectFonts: false,
@@ -114,6 +115,8 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
+      // Only clear events on successful upload
+      events = [];
       console.log('SwingSDK: Events sent successfully');
     } catch (err) {
       if (typeof window !== 'undefined' && window.console) {
@@ -125,8 +128,8 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
           stack: (err as Error).stack
         });
       }
+      // Don't clear events on failure - they'll be retried
     }
-    events = [];
   }
 
   // Send data every 5 seconds
