@@ -62,20 +62,20 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
       events.push(event);
       console.log('SwingSDK: Event captured:', event.type, 'at', new Date(event.timestamp).toLocaleTimeString());
     },
-    // Capture full snapshots more frequently
-    checkoutEveryNth: 1,
-    checkoutEveryNms: 500,
-    // Better capture for React/Next.js apps
-    recordCanvas: true,
-    collectFonts: true,
-    inlineStylesheet: true,
+    // Reduce frequency to prevent massive payloads
+    checkoutEveryNth: 50,
+    checkoutEveryNms: 10000, // 10 seconds instead of 500ms
+    // Disable heavy features for now
+    recordCanvas: false,
+    collectFonts: false,
+    inlineStylesheet: false,
     // Capture more comprehensive DOM state
     maskAllInputs: false,
     maskInputOptions: {
       password: true,
     },
     // Ensure we capture the initial state
-    recordCrossOriginIframes: true,
+    recordCrossOriginIframes: false,
     // ...(rrwebOptions as Partial<recordOptions<eventWithTime>>), // Disabled for now, enable later if needed
   });
 
@@ -107,18 +107,33 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   // Helper to send events
   async function sendEvents() {
     if (events.length === 0) return;
+    
+    // Limit payload size by taking only the most recent events
+    const maxEvents = 50; // Limit to 50 events per batch
+    const eventsToSend = events.slice(-maxEvents);
+    
     const payload = {
       projectId: apiKey,
       userId,
       sessionId,
       url: window.location.href,
       timestamp: new Date().toISOString(),
-      events,
+      events: eventsToSend,
     };
+    
+    const payloadSize = JSON.stringify(payload).length;
+    console.log('SwingSDK: Attempting to send events to:', resolvedEndpoint);
+    console.log('SwingSDK: Payload size:', payloadSize, 'bytes');
+    console.log('SwingSDK: Events to send:', eventsToSend.length, 'out of', events.length, 'total');
+    
+    // Don't send if payload is too large
+    if (payloadSize > 2000000) { // 2MB limit
+      console.warn('SwingSDK: Payload too large, skipping send');
+      events = [];
+      return;
+    }
+    
     try {
-      console.log('SwingSDK: Attempting to send events to:', resolvedEndpoint);
-      console.log('SwingSDK: Payload size:', JSON.stringify(payload).length, 'bytes');
-      
       const response = await fetch(resolvedEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
