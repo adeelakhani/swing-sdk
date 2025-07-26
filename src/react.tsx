@@ -26,8 +26,18 @@ export function SwingProvider({
   useEffect(() => {
     // Initialize SwingSDK when component mounts
     if (typeof window !== 'undefined' && (window as any).SwingSDK) {
-      (window as any).SwingSDK(apiKey);
+      console.log('SwingProvider: Initializing SwingSDK with apiKey:', apiKey);
+      
+      // Pass just the apiKey as a string
+      const stopSwingSDK = (window as any).SwingSDK(apiKey);
+      
       setIsInitialized(true);
+      console.log('SwingProvider: SwingSDK initialized successfully');
+      
+      // Store the stop function for cleanup
+      (window as any).stopSwingSDK = stopSwingSDK;
+    } else {
+      console.error('SwingProvider: SwingSDK not available on window');
     }
   }, [apiKey]);
 

@@ -14,7 +14,7 @@ interface SwingSDKOptions {
 // Prevent double-initialization
 let swingSDKActive = false;
 
-function SwingSDK(options: SwingSDKOptions) {
+function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   if (swingSDKActive) {
     if (typeof window !== 'undefined' && window.console) {
       console.warn('SwingSDK is already initialized.');
@@ -22,6 +22,14 @@ function SwingSDK(options: SwingSDKOptions) {
     return () => Promise.resolve();
   }
   swingSDKActive = true;
+
+  // Handle both string apiKey and options object
+  let options: SwingSDKOptions;
+  if (typeof apiKeyOrOptions === 'string') {
+    options = { apiKey: apiKeyOrOptions };
+  } else {
+    options = apiKeyOrOptions;
+  }
 
   const {
     apiKey,
