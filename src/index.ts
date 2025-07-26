@@ -42,16 +42,27 @@ function SwingSDK(options: SwingSDKOptions) {
   let stopped = false;
   let stopRecording: (() => void) | undefined;
 
-  // Start recording
-  stopRecording = rrweb.record({
-    emit(event: eventWithTime) {
-      events.push(event);
-    },
-    // Ensure we capture a full snapshot
-    checkoutEveryNth: 1,
-    checkoutEveryNms: 1000,
-    // ...(rrwebOptions as Partial<recordOptions<eventWithTime>>), // Disabled for now, enable later if needed
-  });
+  // Start recording with a small delay to ensure React has rendered
+  setTimeout(() => {
+    stopRecording = rrweb.record({
+      emit(event: eventWithTime) {
+        events.push(event);
+      },
+      // Ensure we capture a full snapshot
+      checkoutEveryNth: 1,
+      checkoutEveryNms: 1000,
+      // Better capture for React/Next.js apps
+      recordCanvas: true,
+      collectFonts: true,
+      inlineStylesheet: true,
+      // Capture more comprehensive DOM state
+      maskAllInputs: false,
+      maskInputOptions: {
+        password: true,
+      },
+      // ...(rrwebOptions as Partial<recordOptions<eventWithTime>>), // Disabled for now, enable later if needed
+    });
+  }, 100); // Small delay to ensure React has rendered
 
   // Helper to send events
   async function sendEvents() {
