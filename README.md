@@ -33,18 +33,6 @@ function App() {
 }
 ```
 
-### 2. (Optional) Use the `useSwingSDK` hook
-
-```jsx
-import { useSwingSDK } from 'swingsdk';
-
-function MyComponent() {
-  const swing = useSwingSDK();
-  // You can interact with the SDK instance here if needed
-  return <div>...</div>;
-}
-```
-
 ---
 
 ## API Options for `<SwingProvider>`

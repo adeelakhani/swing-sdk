@@ -11,8 +11,8 @@ interface SwingSDKProviderProps {
   apiKey: string;
   children: ReactNode;
   options?: {
-    uploadUrl?: string;
-    bufferSeconds?: number;
+    userId?: string;
+    sessionId?: string;
   };
 }
 
@@ -28,8 +28,11 @@ export function SwingProvider({
     if (typeof window !== 'undefined' && (window as any).SwingSDK) {
       console.log('SwingProvider: Initializing SwingSDK with apiKey:', apiKey);
       
-      // Pass just the apiKey as a string
-      const stopSwingSDK = (window as any).SwingSDK(apiKey);
+      // Pass options object with apiKey
+      const stopSwingSDK = (window as any).SwingSDK({
+        apiKey,
+        ...options
+      });
       
       setIsInitialized(true);
       console.log('SwingProvider: SwingSDK initialized successfully');
@@ -39,7 +42,7 @@ export function SwingProvider({
     } else {
       console.error('SwingProvider: SwingSDK not available on window');
     }
-  }, [apiKey]);
+  }, [apiKey, options]);
 
   return (
     <SwingSDKContext.Provider value={{ apiKey, isInitialized }}>

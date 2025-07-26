@@ -1,14 +1,11 @@
 import * as rrweb from 'rrweb';
-// import axios from 'axios'; // Remove axios
 import type { eventWithTime } from '@rrweb/types/dist';
-import type { recordOptions } from 'rrweb/typings/types';
 
 // SDK options interface
 interface SwingSDKOptions {
   apiKey: string;
   userId?: string;
   sessionId?: string;
-  // rrwebOptions?: Partial<recordOptions<eventWithTime>>; // Disabled for now, enable later if needed
 }
 
 // Prevent double-initialization
@@ -35,7 +32,6 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     apiKey,
     userId,
     sessionId,
-    // rrwebOptions = {}, // Disabled for now, enable later if needed
   } = options;
 
   const endpoint = process.env.BACKEND_URL;
@@ -56,29 +52,19 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   let stopped = false;
   let stopRecording: (() => void) | undefined;
 
-  // Start recording with minimal capture to reduce data load
+  // Start recording with minimal settings to ensure full snapshot
   stopRecording = rrweb.record({
     emit(event: eventWithTime) {
-      // Only capture essential events to reduce payload size
-      if (event.type === 2 || event.type === 3) { // FullSnapshot or IncrementalSnapshot
-        events.push(event);
-        console.log('SwingSDK: Event captured:', event.type, 'at', new Date(event.timestamp).toLocaleTimeString());
-      }
+      events.push(event);
+      console.log('SwingSDK: Event captured:', event.type, 'at', new Date(event.timestamp).toLocaleTimeString());
     },
-    // Much less frequent capture
-    checkoutEveryNth: 10,
-    checkoutEveryNms: 5000, // 5 seconds instead of 500ms
-    // Disable heavy features
+    // Force immediate full snapshot
+    checkoutEveryNth: 1,
+    checkoutEveryNms: 0, // Force immediate snapshot
+    // Disable heavy features to reduce payload size
     recordCanvas: false,
     collectFonts: false,
     inlineStylesheet: false,
-    // Mask sensitive data
-    maskAllInputs: true,
-    maskInputOptions: {
-      password: true,
-    },
-    // Disable cross-origin iframes
-    recordCrossOriginIframes: false,
   });
 
   console.log('SwingSDK: Recording started');
@@ -88,7 +74,7 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     if (events.length === 0) return;
     
     // Limit payload size by taking only the most recent events
-    const maxEvents = 20; // Limit to 20 events per batch
+    const maxEvents = 100; // Limit to 100 events per batch
     const eventsToSend = events.slice(-maxEvents);
     
     const payload = {
@@ -124,6 +110,8 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       
+      // Only clear events on successful upload
+      events = [];
       console.log('SwingSDK: Events sent successfully');
     } catch (err) {
       if (typeof window !== 'undefined' && window.console) {
@@ -135,8 +123,8 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
           stack: (err as Error).stack
         });
       }
+      // Don't clear events on failure - they'll be retried in the next batch
     }
-    events = [];
   }
 
   // Send data every 5 seconds
