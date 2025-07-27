@@ -1,12 +1,15 @@
 import type { SwingRecorder } from "./recorder";
 
 export class NextJSIntegration {
-  private recorder: SwingRecorder;
+  private tracker: any; // Will be SwingTracker but avoid circular import
   private router: any = null;
   private isListening = false;
+  private currentPath: string = "";
 
-  constructor(recorder: SwingRecorder) {
-    this.recorder = recorder;
+  constructor(tracker: any) {
+    this.tracker = tracker;
+    this.currentPath =
+      typeof window !== "undefined" ? window.location.pathname : "";
   }
 
   public setupRouteTracking(): void {
@@ -57,17 +60,24 @@ export class NextJSIntegration {
 
   private setupAppRouterTracking(): void {
     // For App Router, we'll listen to popstate and manual navigation
-    let currentPath = window.location.pathname;
-
     const checkForRouteChange = () => {
-      if (window.location.pathname !== currentPath) {
-        currentPath = window.location.pathname;
-        this.handleRouteChange(currentPath);
+      const newPath = window.location.pathname;
+      if (newPath !== this.currentPath) {
+        const oldPath = this.currentPath;
+        this.currentPath = newPath;
+        this.handleRouteChange(newPath, oldPath, "pushState");
       }
     };
 
     // Listen for browser back/forward
-    window.addEventListener("popstate", checkForRouteChange);
+    window.addEventListener("popstate", () => {
+      setTimeout(() => {
+        const newPath = window.location.pathname;
+        const oldPath = this.currentPath;
+        this.currentPath = newPath;
+        this.handleRouteChange(newPath, oldPath, "popstate");
+      }, 0);
+    });
 
     // Listen for programmatic navigation
     const originalPushState = history.pushState;
@@ -83,6 +93,14 @@ export class NextJSIntegration {
       setTimeout(checkForRouteChange, 0);
     };
 
+    // Listen for hash changes
+    window.addEventListener("hashchange", () => {
+      const newPath = window.location.pathname + window.location.hash;
+      const oldPath = this.currentPath;
+      this.currentPath = newPath;
+      this.handleRouteChange(newPath, oldPath, "hashchange");
+    });
+
     this.isListening = true;
   }
 
@@ -97,22 +115,29 @@ export class NextJSIntegration {
   }
 
   private setupManualRouteTracking(): void {
-    let currentPath =
+    const getCurrentPath = () =>
       window.location.pathname + window.location.search + window.location.hash;
 
+    this.currentPath = getCurrentPath();
+
     const checkForRouteChange = () => {
-      const newPath =
-        window.location.pathname +
-        window.location.search +
-        window.location.hash;
-      if (newPath !== currentPath) {
-        currentPath = newPath;
-        this.handleRouteChange(newPath);
+      const newPath = getCurrentPath();
+      if (newPath !== this.currentPath) {
+        const oldPath = this.currentPath;
+        this.currentPath = newPath;
+        this.handleRouteChange(newPath, oldPath, "navigation");
       }
     };
 
     // Listen for browser navigation
-    window.addEventListener("popstate", checkForRouteChange);
+    window.addEventListener("popstate", () => {
+      setTimeout(() => {
+        const newPath = getCurrentPath();
+        const oldPath = this.currentPath;
+        this.currentPath = newPath;
+        this.handleRouteChange(newPath, oldPath, "popstate");
+      }, 0);
+    });
 
     // Override history methods to catch programmatic navigation
     const originalPushState = history.pushState;
@@ -128,6 +153,14 @@ export class NextJSIntegration {
       setTimeout(checkForRouteChange, 0);
     };
 
+    // Listen for hash changes
+    window.addEventListener("hashchange", () => {
+      const newPath = getCurrentPath();
+      const oldPath = this.currentPath;
+      this.currentPath = newPath;
+      this.handleRouteChange(newPath, oldPath, "hashchange");
+    });
+
     this.isListening = true;
   }
 
@@ -136,22 +169,43 @@ export class NextJSIntegration {
       return;
     }
 
-    this.router.events.on("routeChangeComplete", this.handleRouteChange);
-    this.router.events.on("hashChangeComplete", this.handleRouteChange);
+    this.router.events.on("routeChangeComplete", (url: string) => {
+      this.handleRouteChange(url, this.currentPath, "routeChangeComplete");
+      this.currentPath = url;
+    });
+    this.router.events.on("hashChangeComplete", (url: string) => {
+      this.handleRouteChange(url, this.currentPath, "hashChangeComplete");
+      this.currentPath = url;
+    });
     this.isListening = true;
   }
 
-  private handleRouteChange = (url: string): void => {
+  private handleRouteChange = (
+    newUrl: string,
+    oldUrl: string = "",
+    navigationType: string = "navigation"
+  ): void => {
     // Create a custom event for route changes that rrweb can capture
     if (typeof window !== "undefined") {
       const event = new CustomEvent("swing-route-change", {
         detail: {
-          url,
+          url: newUrl,
           timestamp: Date.now(),
           referrer: document.referrer,
+          from: oldUrl,
+          to: newUrl,
+          type: navigationType,
         },
       });
       window.dispatchEvent(event);
+
+      // Also track via the tracker's navigation tracking if available
+      if (
+        this.tracker &&
+        typeof this.tracker.trackNavigationEvent === "function"
+      ) {
+        this.tracker.trackNavigationEvent(navigationType, oldUrl, newUrl);
+      }
     }
   };
 }

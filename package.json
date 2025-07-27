@@ -1,7 +1,7 @@
 {
-  "name": "swing-js",
-  "version": "1.0.0",
-  "description": "A session replay SDK for Next.js applications using rrweb",
+  "name": "swing-sdk-js",
+  "version": "2.0.0",
+  "description": "Complete session replay SDK for Next.js with automatic business intelligence tracking. Drop-in replacement for HumanBehavior SDK with rrweb-powered recording, user management, and privacy controls.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
@@ -18,36 +18,59 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md",
+    "docs"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "type-check": "tsc --noEmit",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run build && npm run type-check"
   },
   "keywords": [
     "session-replay",
     "rrweb",
     "nextjs",
     "analytics",
-    "user-behavior"
+    "user-behavior",
+    "business-intelligence",
+    "user-tracking",
+    "privacy",
+    "humanbehavior",
+    "session-recording",
+    "react",
+    "typescript",
+    "web-analytics",
+    "event-tracking",
+    "performance-monitoring"
   ],
   "author": "Swing",
   "license": "MIT",
+  "homepage": "https://github.com/swing-dev/swing-sdk#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/swing-dev/swing-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/swing-dev/swing-sdk/issues"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  },
   "peerDependencies": {
-    "next": ">=12.0.0",
     "react": ">=16.8.0",
-    "react-dom": ">=16.8.0"
+    "react-dom": ">=16.8.0",
+    "next": ">=12.0.0"
   },
   "dependencies": {
-    "humanbehavior-js": "^0.2.2",
     "rrweb": "^2.0.0-alpha.13"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@types/node": "^20.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0"
   }

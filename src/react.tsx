@@ -2,91 +2,117 @@ import React, {
   createContext,
   useContext,
   useEffect,
-  useRef,
+  useState,
   ReactNode,
 } from "react";
-import { SwingRecorder } from "./recorder";
-import { NextJSIntegration } from "./nextjs-integration";
-import type { SwingConfig, SwingOptions } from "./types";
+import { SwingTracker } from "./tracker";
+import type { SwingOptions, UserProperties } from "./types";
 
 interface SwingProviderProps {
   apiKey: string;
-  endpoint: string;
+  ingestionUrl?: string;
   options?: SwingOptions;
   children: ReactNode;
 }
 
 interface SwingContextValue {
-  recorder: SwingRecorder | null;
+  tracker: SwingTracker | null;
   sessionId: string | null;
   isRecording: boolean;
+  addUserInfo: (
+    userId: string,
+    userProperties: UserProperties
+  ) => Promise<void>;
+  authenticateUser: (
+    userId: string,
+    userProperties: UserProperties,
+    authFields?: string[]
+  ) => Promise<void>;
+  sendCustomEvent: (
+    eventName: string,
+    eventProperties?: Record<string, any>
+  ) => Promise<void>;
+  setRedactedFields: (fields: string[]) => void;
 }
 
 const SwingContext = createContext<SwingContextValue | null>(null);
 
 export const SwingProvider: React.FC<SwingProviderProps> = ({
   apiKey,
-  endpoint,
+  ingestionUrl = "https://ingest.swing.co",
   options = {},
   children,
 }) => {
-  const recorderRef = useRef<SwingRecorder | null>(null);
-  const integrationRef = useRef<NextJSIntegration | null>(null);
-  const [sessionId, setSessionId] = React.useState<string | null>(null);
-  const [isRecording, setIsRecording] = React.useState(false);
+  const [tracker, setTracker] = useState<SwingTracker | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
 
   useEffect(() => {
-    // Only initialize on client side
-    if (typeof window === "undefined") {
-      return;
-    }
+    if (typeof window === "undefined") return;
 
-    const config: SwingConfig = {
-      apiKey,
-      endpoint,
-      options,
-    };
+    // Use global singleton
+    const swingTracker = SwingTracker.init(apiKey, ingestionUrl, options);
 
-    // Create recorder instance
-    recorderRef.current = new SwingRecorder(config);
+    swingTracker
+      .start()
+      .then(() => {
+        setTracker(swingTracker);
+        setSessionId(swingTracker.getSessionId());
+        setIsRecording(true);
+      })
+      .catch((error) => {
+        console.error("[Swing] Failed to start tracker:", error);
+      });
 
-    // Create Next.js integration
-    integrationRef.current = new NextJSIntegration(recorderRef.current);
-
-    // Start recording
-    recorderRef.current.start();
-    setIsRecording(true);
-    setSessionId(recorderRef.current.getSessionId());
-
-    // Setup route tracking
-    integrationRef.current.setupRouteTracking();
-
-    // Cleanup function
     return () => {
-      if (recorderRef.current) {
-        recorderRef.current.stop();
-        setIsRecording(false);
-      }
-      if (integrationRef.current) {
-        integrationRef.current.cleanup();
-      }
+      // Don't stop - let it persist across page changes
+      // The global singleton will handle cleanup on page unload
     };
-  }, [apiKey, endpoint, options]);
+  }, [apiKey, ingestionUrl]);
 
-  // Update session ID when it changes
-  useEffect(() => {
-    if (recorderRef.current) {
-      const currentSessionId = recorderRef.current.getSessionId();
-      if (currentSessionId !== sessionId) {
-        setSessionId(currentSessionId);
-      }
+  // Wrapper functions for easier access
+  const addUserInfo = async (
+    userId: string,
+    userProperties: UserProperties
+  ): Promise<void> => {
+    if (tracker) {
+      await tracker.addUserInfo(userId, userProperties);
     }
-  }, [sessionId]);
+  };
+
+  const authenticateUser = async (
+    userId: string,
+    userProperties: UserProperties,
+    authFields?: string[]
+  ): Promise<void> => {
+    if (tracker) {
+      await tracker.authenticateUser(userId, userProperties, authFields);
+    }
+  };
+
+  const sendCustomEvent = async (
+    eventName: string,
+    eventProperties?: Record<string, any>
+  ): Promise<void> => {
+    if (tracker) {
+      await tracker.sendCustomEvent(eventName, eventProperties);
+    }
+  };
+
+  const setRedactedFields = (fields: string[]): void => {
+    if (tracker) {
+      tracker.setRedactedFields(fields);
+    }
+  };
 
   const contextValue: SwingContextValue = {
-    recorder: recorderRef.current,
+    tracker,
     sessionId,
     isRecording,
+    addUserInfo,
+    authenticateUser,
+    sendCustomEvent,
+    setRedactedFields,
   };
 
   return (
@@ -104,9 +130,9 @@ export const useSwing = (): SwingContextValue => {
   return context;
 };
 
-export const useSwingRecorder = (): SwingRecorder | null => {
-  const { recorder } = useSwing();
-  return recorder;
+export const useSwingTracker = (): SwingTracker | null => {
+  const { tracker } = useSwing();
+  return tracker;
 };
 
 export const useSwingSession = (): {
@@ -115,4 +141,45 @@ export const useSwingSession = (): {
 } => {
   const { sessionId, isRecording } = useSwing();
   return { sessionId, isRecording };
+};
+
+// Additional hooks for user management
+export const useSwingUser = (): {
+  addUserInfo: (
+    userId: string,
+    userProperties: UserProperties
+  ) => Promise<void>;
+  authenticateUser: (
+    userId: string,
+    userProperties: UserProperties,
+    authFields?: string[]
+  ) => Promise<void>;
+  getUserId: () => string | null;
+} => {
+  const { tracker, addUserInfo, authenticateUser } = useSwing();
+
+  const getUserId = (): string | null => {
+    return tracker ? tracker.getUserId() : null;
+  };
+
+  return { addUserInfo, authenticateUser, getUserId };
+};
+
+// Hook for custom events
+export const useSwingEvents = (): {
+  sendCustomEvent: (
+    eventName: string,
+    eventProperties?: Record<string, any>
+  ) => Promise<void>;
+} => {
+  const { sendCustomEvent } = useSwing();
+  return { sendCustomEvent };
+};
+
+// Hook for privacy controls
+export const useSwingPrivacy = (): {
+  setRedactedFields: (fields: string[]) => void;
+} => {
+  const { setRedactedFields } = useSwing();
+  return { setRedactedFields };
 };

@@ -10,6 +10,22 @@ export interface SwingConfig {
 export interface SwingOptions {
   /** Whether to record in debug mode */
   debug?: boolean;
+  /** Ingestion URL for the API */
+  ingestionUrl?: string;
+  /** Fields to redact for privacy */
+  redactFields?: string[];
+  /** Enable automatic tracking of user interactions */
+  enableAutomaticTracking?: boolean;
+  /** Configuration for automatic tracking */
+  automaticTrackingOptions?: {
+    trackButtons?: boolean;
+    trackLinks?: boolean;
+    trackForms?: boolean;
+    includeText?: boolean;
+    includeClasses?: boolean;
+  };
+  /** Enable console log tracking */
+  enableConsoleTracking?: boolean;
   /** Custom sampling configuration */
   sampling?: {
     /** Sample rate for mouse movements (0-1) */
@@ -36,18 +52,21 @@ export interface SwingOptions {
     maskInputOptions?: {
       [key: string]: boolean;
     };
-    slimDOMOptions?: {
-      script?: boolean;
-      comment?: boolean;
-      headFavicon?: boolean;
-      headWhitespace?: boolean;
-      headMetaDescKeywords?: boolean;
-      headMetaSocial?: boolean;
-      headMetaRobots?: boolean;
-      headMetaHttpEquiv?: boolean;
-      headMetaAuthorship?: boolean;
-      headMetaVerification?: boolean;
-    };
+    slimDOMOptions?:
+      | "all"
+      | "last"
+      | {
+          script?: boolean;
+          comment?: boolean;
+          headFavicon?: boolean;
+          headWhitespace?: boolean;
+          headMetaDescKeywords?: boolean;
+          headMetaSocial?: boolean;
+          headMetaRobots?: boolean;
+          headMetaHttpEquiv?: boolean;
+          headMetaAuthorship?: boolean;
+          headMetaVerification?: boolean;
+        };
     inlineStylesheet?: boolean;
     hooks?: {
       mutation?: {
@@ -85,4 +104,57 @@ export interface SwingSession {
     width: number;
     height: number;
   };
+}
+
+// New interfaces for HumanBehavior compatibility
+
+export interface CustomEventPayload {
+  eventType:
+    | "button_clicked"
+    | "link_clicked"
+    | "form_submitted"
+    | "console"
+    | "navigation";
+  buttonId?: string | null;
+  buttonType?: string;
+  buttonText?: string | null;
+  buttonClass?: string | null;
+  linkUrl?: string | null;
+  linkId?: string | null;
+  linkTarget?: string | null;
+  linkText?: string | null;
+  linkClass?: string | null;
+  formId?: string | null;
+  formAction?: string | null;
+  formMethod?: string;
+  fields?: string[];
+  formClass?: string | null;
+  level?: "log" | "warn" | "error";
+  message?: string;
+  url?: string;
+  type?: string;
+  from?: string;
+  to?: string;
+  pathname?: string;
+  search?: string;
+  hash?: string;
+  referrer?: string;
+  page?: string;
+  timestamp: number | string;
+}
+
+export interface SwingCustomEvent extends SwingEvent {
+  type: 5; // Custom event type
+  data: {
+    payload: CustomEventPayload;
+  };
+}
+
+export interface APIInitResponse {
+  sessionId: string;
+  endUserId?: string;
+}
+
+export interface UserProperties {
+  [key: string]: any;
 }
