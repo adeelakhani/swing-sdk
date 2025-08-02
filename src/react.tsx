@@ -1,8 +1,20 @@
 import React, { createContext, useContext, useEffect, ReactNode } from 'react';
 
+// User management interface
+interface SwingUser {
+  id: string;
+  email?: string;
+  name?: string;
+  properties?: Record<string, any>;
+}
+
 interface SwingSDKContextType {
   apiKey: string;
   isInitialized: boolean;
+  setUser: (user: SwingUser) => void;
+  identifyUser: (userId: string, properties?: Record<string, any>) => void;
+  clearUser: () => void;
+  sendCustomEvent: (name: string, properties?: Record<string, any>) => void;
 }
 
 const SwingSDKContext = createContext<SwingSDKContextType | null>(null);
@@ -22,6 +34,31 @@ export function SwingProvider({
   options = {} 
 }: SwingSDKProviderProps) {
   const [isInitialized, setIsInitialized] = React.useState(false);
+
+  // User management methods
+  const setUser = (user: SwingUser) => {
+    if (typeof window !== 'undefined' && window.swingSDK) {
+      window.swingSDK.setUser(user);
+    }
+  };
+
+  const identifyUser = (userId: string, properties?: Record<string, any>) => {
+    if (typeof window !== 'undefined' && window.swingSDK) {
+      window.swingSDK.identifyUser(userId, properties);
+    }
+  };
+
+  const clearUser = () => {
+    if (typeof window !== 'undefined' && window.swingSDK) {
+      window.swingSDK.clearUser();
+    }
+  };
+
+  const sendCustomEvent = (name: string, properties?: Record<string, any>) => {
+    if (typeof window !== 'undefined' && window.swingSDK) {
+      window.swingSDK.sendCustomEvent(name, properties);
+    }
+  };
 
   useEffect(() => {
     // Initialize SwingSDK when component mounts
@@ -45,7 +82,14 @@ export function SwingProvider({
   }, [apiKey, options]);
 
   return (
-    <SwingSDKContext.Provider value={{ apiKey, isInitialized }}>
+    <SwingSDKContext.Provider value={{ 
+      apiKey, 
+      isInitialized, 
+      setUser, 
+      identifyUser, 
+      clearUser, 
+      sendCustomEvent 
+    }}>
       {children}
     </SwingSDKContext.Provider>
   );

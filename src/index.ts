@@ -11,8 +11,46 @@ interface SwingSDKOptions {
   // rrwebOptions?: Partial<recordOptions<eventWithTime>>; // Disabled for now, enable later if needed
 }
 
+// User management interface
+interface SwingUser {
+  id: string;
+  email?: string;
+  name?: string;
+  properties?: Record<string, any>;
+}
+
+// Custom event interface
+interface SwingCustomEvent {
+  name: string;
+  properties?: Record<string, any>;
+  timestamp?: number;
+}
+
+// Business event types
+interface BusinessEvent {
+  type: 'click' | 'form_submit' | 'navigation' | 'console' | 'error' | 'custom';
+  element?: {
+    tagName?: string;
+    id?: string;
+    className?: string;
+    text?: string;
+    href?: string;
+  };
+  data?: Record<string, any>;
+  timestamp: number;
+  url: string;
+}
+
 // Prevent double-initialization
 let swingSDKActive = false;
+let currentUser: SwingUser | null = null;
+let businessEvents: BusinessEvent[] = [];
+let originalConsole: {
+  log: typeof console.log;
+  error: typeof console.error;
+  warn: typeof console.warn;
+  info: typeof console.info;
+} | null = null;
 
 function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   if (swingSDKActive) {
@@ -56,6 +94,192 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   let stopped = false;
   let stopRecording: (() => void) | undefined;
 
+  // ===== CONSOLE TRACKING =====
+  function setupConsoleTracking() {
+    if (typeof window === 'undefined' || !window.console) return;
+    
+    originalConsole = {
+      log: console.log,
+      error: console.error,
+      warn: console.warn,
+      info: console.info
+    };
+
+    // Override console methods
+    console.log = (...args) => {
+      originalConsole?.log(...args);
+      captureConsoleEvent('log', args);
+    };
+
+    console.error = (...args) => {
+      originalConsole?.error(...args);
+      captureConsoleEvent('error', args);
+    };
+
+    console.warn = (...args) => {
+      originalConsole?.warn(...args);
+      captureConsoleEvent('warn', args);
+    };
+
+    console.info = (...args) => {
+      originalConsole?.info(...args);
+      captureConsoleEvent('info', args);
+    };
+
+    // Capture unhandled errors
+    window.addEventListener('error', (event) => {
+      captureErrorEvent(event.error || event.message, event.filename, event.lineno);
+    });
+
+    window.addEventListener('unhandledrejection', (event) => {
+      captureErrorEvent(event.reason, 'unhandledrejection', 0);
+    });
+  }
+
+  function captureConsoleEvent(level: string, args: any[]) {
+    const event: BusinessEvent = {
+      type: 'console',
+      data: {
+        level,
+        message: args.map(arg => 
+          typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
+        ).join(' '),
+        args: args.map(arg => 
+          typeof arg === 'object' ? '[Object]' : String(arg)
+        )
+      },
+      timestamp: Date.now(),
+      url: window.location.href
+    };
+    businessEvents.push(event);
+  }
+
+  function captureErrorEvent(error: any, filename?: string, lineno?: number) {
+    const event: BusinessEvent = {
+      type: 'error',
+      data: {
+        message: error?.message || String(error),
+        stack: error?.stack,
+        filename,
+        lineno,
+        name: error?.name
+      },
+      timestamp: Date.now(),
+      url: window.location.href
+    };
+    businessEvents.push(event);
+  }
+
+  // ===== AUTOMATIC BUSINESS EVENT TRACKING =====
+  function setupBusinessEventTracking() {
+    if (typeof window === 'undefined') return;
+
+    // Track clicks
+    document.addEventListener('click', (event) => {
+      const target = event.target as HTMLElement;
+      if (!target) return;
+
+      const eventData: BusinessEvent = {
+        type: 'click',
+        element: {
+          tagName: target.tagName,
+          id: target.id,
+          className: target.className,
+          text: target.textContent?.slice(0, 100),
+          href: (target as HTMLAnchorElement).href
+        },
+        timestamp: Date.now(),
+        url: window.location.href
+      };
+      businessEvents.push(eventData);
+    });
+
+    // Track form submissions
+    document.addEventListener('submit', (event) => {
+      const form = event.target as HTMLFormElement;
+      if (!form) return;
+
+      const formData = new FormData(form);
+      const formFields: Record<string, string> = {};
+      
+      // Capture form field data (excluding passwords)
+      for (const [key, value] of formData.entries()) {
+        const input = form.querySelector(`[name="${key}"]`) as HTMLInputElement;
+        if (input && input.type !== 'password') {
+          formFields[key] = String(value);
+        }
+      }
+
+      const eventData: BusinessEvent = {
+        type: 'form_submit',
+        element: {
+          tagName: form.tagName,
+          id: form.id,
+          className: form.className
+        },
+        data: {
+          action: form.action,
+          method: form.method,
+          fields: formFields,
+          fieldCount: Object.keys(formFields).length
+        },
+        timestamp: Date.now(),
+        url: window.location.href
+      };
+      businessEvents.push(eventData);
+    });
+
+    // Track navigation (for SPA)
+    let currentUrl = window.location.href;
+    const observer = new MutationObserver(() => {
+      if (window.location.href !== currentUrl) {
+        const eventData: BusinessEvent = {
+          type: 'navigation',
+          data: {
+            from: currentUrl,
+            to: window.location.href
+          },
+          timestamp: Date.now(),
+          url: window.location.href
+        };
+        businessEvents.push(eventData);
+        currentUrl = window.location.href;
+      }
+    });
+
+    observer.observe(document, { subtree: true, childList: true });
+  }
+
+  // ===== USER MANAGEMENT =====
+  function setUser(user: SwingUser) {
+    currentUser = user;
+    console.log('SwingSDK: User set:', user.id);
+  }
+
+  function identifyUser(userId: string, properties?: Record<string, any>) {
+    setUser({ id: userId, ...properties });
+  }
+
+  function clearUser() {
+    currentUser = null;
+    console.log('SwingSDK: User cleared');
+  }
+
+  // ===== CUSTOM EVENT API =====
+  function sendCustomEvent(name: string, properties?: Record<string, any>) {
+    const event: BusinessEvent = {
+      type: 'custom',
+      data: {
+        name,
+        properties
+      },
+      timestamp: Date.now(),
+      url: window.location.href
+    };
+    businessEvents.push(event);
+    console.log('SwingSDK: Custom event sent:', name, properties);
+  }
+
   // Start recording with proper settings for event capture
   stopRecording = rrweb.record({
     emit(event: eventWithTime) {
@@ -72,28 +296,36 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     inlineStylesheet: false,
   });
 
+  // Setup tracking
+  setupConsoleTracking();
+  setupBusinessEventTracking();
+
   console.log('SwingSDK: Recording started');
 
   // Helper to send events
   async function sendEvents() {
-    if (events.length === 0) return;
+    if (events.length === 0 && businessEvents.length === 0) return;
     
     // Send all events without size limits
     const eventsToSend = events;
+    const businessEventsToSend = businessEvents;
     
     const payload = {
       projectId: apiKey,
-      userId,
+      userId: currentUser?.id || userId,
       sessionId,
       url: window.location.href,
       timestamp: new Date().toISOString(),
       events: eventsToSend,
+      businessEvents: businessEventsToSend,
+      user: currentUser
     };
     
     const payloadSize = JSON.stringify(payload).length;
     console.log('SwingSDK: Attempting to send events to:', resolvedEndpoint);
     console.log('SwingSDK: Payload size:', payloadSize, 'bytes');
     console.log('SwingSDK: Events to send:', eventsToSend.length, 'out of', events.length, 'total');
+    console.log('SwingSDK: Business events to send:', businessEventsToSend.length);
     
     try {
       const response = await fetch(resolvedEndpoint, {
@@ -109,6 +341,7 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
       
       // Only clear events on successful upload
       events = [];
+      businessEvents = [];
       console.log('SwingSDK: Events sent successfully');
     } catch (err) {
       if (typeof window !== 'undefined' && window.console) {
@@ -132,14 +365,16 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   // Flush on unload using sendBeacon
   function handleUnload() {
     stopped = true;
-    if (events.length) {
+    if (events.length || businessEvents.length) {
       const payload = {
         projectId: apiKey,
-        userId,
+        userId: currentUser?.id || userId,
         sessionId,
         url: window.location.href,
         timestamp: new Date().toISOString(),
         events,
+        businessEvents,
+        user: currentUser
       };
       try {
         navigator.sendBeacon(resolvedEndpoint, JSON.stringify(payload));
@@ -150,12 +385,31 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
         }
       }
       events = [];
+      businessEvents = [];
     }
     stopRecording?.();
     clearInterval(interval);
     swingSDKActive = false;
+    
+    // Restore original console methods
+    if (originalConsole && typeof window !== 'undefined' && window.console) {
+      console.log = originalConsole.log;
+      console.error = originalConsole.error;
+      console.warn = originalConsole.warn;
+      console.info = originalConsole.info;
+    }
   }
   window.addEventListener('beforeunload', handleUnload);
+
+  // Expose methods on window.swingSDK
+  if (typeof window !== 'undefined') {
+    window.swingSDK = {
+      setUser,
+      identifyUser,
+      clearUser,
+      sendCustomEvent
+    };
+  }
 
   // Return async cleanup function
   return async function stopSwingSDK() {
@@ -170,11 +424,21 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
 
 // Expose globally for script tag usage with type safety
 declare global {
-  interface Window { SwingSDK?: typeof SwingSDK }
+  interface Window { 
+    SwingSDK?: typeof SwingSDK;
+    swingSDK?: {
+      setUser: (user: SwingUser) => void;
+      identifyUser: (userId: string, properties?: Record<string, any>) => void;
+      clearUser: () => void;
+      sendCustomEvent: (name: string, properties?: Record<string, any>) => void;
+    };
+  }
 }
+
 if (typeof window !== 'undefined') {
   console.log('SwingSDK: Exposing to window object');
   window.SwingSDK = SwingSDK;
+  
   console.log('SwingSDK: Available on window:', !!window.SwingSDK);
 } else {
   console.log('SwingSDK: Window not available (server-side)');
