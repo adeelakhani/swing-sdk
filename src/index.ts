@@ -74,7 +74,7 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     apiKey,
     userId,
     sessionId,
-    redactFields = ['input[type="password"]'], // Default: mask passwords
+    redactFields = ['input[type="password"]', '.swing-no-capture', '.swing-mask'], // Default privacy classes
     // rrwebOptions = {}, // Disabled for now, enable later if needed
   } = options;
 
@@ -324,9 +324,13 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
       events.push(event);
       console.log('SwingSDK: Event captured:', event.type, 'at', new Date(event.timestamp).toLocaleTimeString());
     },
-    // Privacy settings (Human Behavior style)
-    blockSelector: currentRedactFields.join(', '), // Block elements matching redactFields
-    maskAllInputs: false, // We handle masking ourselves
+    // Privacy settings (CORRECT rrweb options)
+    maskAllInputs: true, // ✅ Mask ALL inputs by default
+    blockClass: 'swing-no-capture', // ✅ Block elements with this class
+    maskTextClass: 'swing-mask', // ✅ Mask text with this class
+    maskInputOptions: {
+      color: true,
+    },
     // Take full snapshot every 100 events (reasonable)
     checkoutEveryNth: 100,
     // Take full snapshot every 30 seconds (reasonable)
