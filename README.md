@@ -1,18 +1,31 @@
 # Swing SDK
 
-Swing SDK automatically captures user interactions and sends them to our backend for agentic analysis. You get actionable insights, not raw data.
+A powerful session recording and user behavior analytics SDK inspired by PostHog and Human Behavior, but built for simplicity and privacy.
 
-## 🚀 Quick Start
+## Features
+
+- 🎥 **Session Recording** - Full session replay with rrweb
+- 🔍 **Automatic Event Tracking** - Clicks, forms, navigation 
+- 📝 **Console Tracking** - Capture console logs and errors
+- 👤 **User Management** - Identify and track users
+- 📊 **Custom Events** - Track business-specific events
+- 🔒 **Privacy Controls** - Simple CSS-based redaction
+- ⚛️ **React Integration** - Easy React hooks and provider
+
+## Quick Start
 
 ### Installation
+
 ```bash
-npm install swing-sdk
+npm install @swing/sdk
 ```
 
-### Basic Setup
-```jsx
-import { SwingProvider } from 'swing-sdk';
+### Basic Usage
 
+```typescript
+import { SwingProvider } from '@swing/sdk';
+
+// Wrap your app
 function App() {
   return (
     <SwingProvider apiKey="your-api-key">
@@ -20,262 +33,271 @@ function App() {
     </SwingProvider>
   );
 }
-```
 
-**That's it!** The SDK automatically starts recording and analyzing user interactions.
-
----
-
-## 📊 Automatic Features
-
-### Session Recording
-The SDK automatically captures:
-- ✅ **All clicks** - Every button, link, and element interaction
-- ✅ **Form submissions** - All form data (passwords automatically masked)
-- ✅ **Navigation** - Page changes and URL updates
-- ✅ **Console logs** - All console.log, error, warn, and info calls
-- ✅ **JavaScript errors** - Unhandled errors and exceptions
-- ✅ **Page views** - Every page the user visits
-
-### Agentic Analysis
-Our backend automatically analyzes sessions to provide:
-- **User journey insights** - How users navigate your app
-- **Error patterns** - What causes issues and when
-- **Conversion analysis** - Where users drop off and why
-- **Performance insights** - Slow interactions and bottlenecks
-- **Feature usage** - Which features users engage with most
-
----
-
-## 🎯 Optional Features
-
-### User Identification
-Track specific users across sessions:
-
-```jsx
-import { useSwingSDK } from 'swing-sdk';
+// Use in components
+import { useSwingSDK } from '@swing/sdk';
 
 function LoginComponent() {
-  const { identifyUser, clearUser } = useSwingSDK();
-
-  const handleSignIn = (user) => {
-    identifyUser(user.id, {
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      plan: user.plan  // Custom properties go here
-    });
-  };
-
-  const handleSignOut = () => {
-    clearUser();
+  const { identifyUser, sendCustomEvent } = useSwingSDK();
+  
+  const handleLogin = (user) => {
+    identifyUser(user.id, { email: user.email });
+    sendCustomEvent('user_login', { method: 'email' });
   };
 }
 ```
 
-**Benefits:**
-- Link insights to specific users
-- Track user behavior patterns
-- Debug issues for specific users
-- Analyze user segments
+## Privacy & Redaction
+
+### Simple CSS Selectors (Human Behavior Style)
+
+```typescript
+// Initialize with redaction
+<SwingProvider 
+  apiKey="your-key"
+  options={{
+    redactFields: [
+      'input[type="password"]',    // All password fields
+      'input[type="email"]',       // All email fields  
+      '.sensitive-data',           // Any element with this class
+      '#credit-card-number',       // Specific element ID
+      '[data-private]'             // Any element with data-private attribute
+    ]
+  }}
+>
+  <App />
+</SwingProvider>
+
+// Update redaction dynamically
+const { setRedactedFields, getRedactedFields } = useSwingSDK();
+
+// Add more fields to redact
+setRedactedFields([
+  ...getRedactedFields(),
+  '.payment-info',
+  '#social-security'
+]);
+```
+
+### HTML Examples
+
+```html
+<!-- These will be redacted -->
+<input type="password" name="password" />
+<input type="email" class="sensitive-data" />
+<div data-private>Secret content</div>
+<span class="credit-card">4111 1111 1111 1111</span>
+
+<!-- These will be recorded normally -->
+<input type="text" name="username" />
+<button>Submit</button>
+<div>Public content</div>
+```
+
+## API Reference
+
+### SwingProvider Props
+
+```typescript
+interface SwingSDKProviderProps {
+  apiKey: string;                    // Your Swing API key
+  children: ReactNode;
+  options?: {
+    userId?: string;                 // Initial user ID
+    sessionId?: string;              // Custom session ID
+    redactFields?: string[];         // CSS selectors to redact
+  };
+}
+```
+
+### useSwingSDK Hook
+
+```typescript
+const {
+  // User Management
+  setUser,              // (user: SwingUser) => void
+  identifyUser,         // (userId: string, properties?) => void  
+  clearUser,            // () => void
+  
+  // Custom Events
+  sendCustomEvent,      // (name: string, properties?) => void
+  
+  // Privacy Controls
+  setRedactedFields,    // (selectors: string[]) => void
+  getRedactedFields,    // () => string[]
+  
+  // Status
+  isInitialized         // boolean
+} = useSwingSDK();
+```
+
+## Advanced Usage
 
 ### Custom Events
-Track specific business events for deeper analysis:
 
-```jsx
-import { useSwingSDK } from 'swing-sdk';
-
-function MyComponent() {
-  const { sendCustomEvent } = useSwingSDK();
-
-  const handlePurchase = () => {
-    sendCustomEvent('purchase_completed', {
-      amount: 99.99,
-      product: 'premium_plan',
-      paymentMethod: 'credit_card'
-    });
-  };
-
-  const handleFeatureUsed = () => {
-    sendCustomEvent('feature_used', {
-      featureName: 'dark_mode',
-      userType: 'premium'
-    });
-  };
-}
-```
-
-**Benefits:**
-- Track business-specific metrics
-- Analyze conversion funnels
-- Monitor feature adoption
-- Measure user engagement
-
----
-
-## 🔧 Configuration Options
-
-### Basic Configuration
-```jsx
-<SwingProvider apiKey="your-api-key">
-  <App />
-</SwingProvider>
-```
-
-### Advanced Configuration
-```jsx
-<SwingProvider 
-  apiKey="your-api-key"
-  options={{
-    userId: "user123",        // Optional: Track specific user
-    sessionId: "session456"   // Optional: Maintain session continuity
-  }}
->
-  <App />
-</SwingProvider>
-```
-
-### Environment-Based Configuration
-```jsx
-<SwingProvider 
-  apiKey={process.env.NEXT_PUBLIC_SWING_API_KEY}
-  options={{
-    userId: process.env.NEXT_PUBLIC_SWING_USER_ID,
-    sessionId: process.env.NEXT_PUBLIC_SWING_SESSION_ID
-  }}
->
-  <App />
-</SwingProvider>
-```
-
----
-
-## 📈 What You Get
-
-### Agentic Insights
-- **User behavior analysis** - Understand how users actually use your app
-- **Error pattern detection** - Identify and fix recurring issues
-- **Conversion optimization** - Find and fix drop-off points
-- **Performance optimization** - Identify slow interactions
-- **Feature usage analysis** - See which features drive engagement
-
-### Business Intelligence
-- **User journey mapping** - See complete user paths through your app
-- **Conversion funnel analysis** - Track user progression through key flows
-- **Error impact analysis** - Understand how errors affect user experience
-- **Performance impact** - See how speed affects user behavior
-- **Feature adoption insights** - Understand what drives feature usage
-
----
-
-## 🛡️ Privacy Features
-
-### Automatic Privacy Protection
-- **Password masking** - Passwords are automatically hidden from analysis
-- **Sensitive data protection** - Form fields can be masked with CSS classes
-- **GDPR compliance** - Built-in support for data privacy requirements
-
-### Privacy Controls
-```css
-/* Block entire elements from recording */
-.swing-no-capture {
-  /* This element and all children won't be recorded */
-}
-
-/* Mask text content */
-.swing-mask {
-  /* Text content will be replaced with asterisks */
-}
-
-/* Ignore input changes */
-.swing-ignore-input {
-  /* Input changes won't be recorded */
-}
-```
-
----
-
-## 🚀 Use Cases
-
-### Product Development
-- **User experience research** - Understand how users actually use your app
-- **Feature optimization** - See which features are used most and least
-- **Conversion optimization** - Identify and fix points where users drop off
-- **Performance optimization** - Find and fix slow interactions
-
-### Customer Support
-- **Issue reproduction** - Understand exactly what led to user problems
-- **User confusion analysis** - See where users get stuck or confused
-- **Proactive support** - Identify issues before users report them
-
-### Business Intelligence
-- **User behavior analysis** - Understand user patterns and preferences
-- **A/B testing validation** - Verify that test results match user behavior
-- **Conversion analysis** - Track key business metrics and conversions
-
----
-
-## 🔧 Advanced Features
-
-### Manual Event Tracking
-```jsx
+```typescript
 const { sendCustomEvent } = useSwingSDK();
 
 // Track business events
 sendCustomEvent('purchase_completed', {
   amount: 99.99,
-  product: 'premium_plan'
+  currency: 'USD',
+  items: ['product_1', 'product_2']
 });
 
-// Track user actions
-sendCustomEvent('button_clicked', {
-  buttonName: 'signup_button',
-  pageLocation: 'pricing_page'
-});
-
-// Track errors
-sendCustomEvent('api_error', {
-  endpoint: '/api/users',
-  statusCode: 500,
-  errorMessage: 'Database connection failed'
+// Track feature usage
+sendCustomEvent('feature_used', {
+  feature: 'dark_mode',
+  enabled: true
 });
 ```
 
 ### User Management
-```jsx
-const { identifyUser, clearUser } = useSwingSDK();
 
-// Identify user on login
-identifyUser('user123', {
-  name: 'John Doe',
+```typescript
+const { identifyUser, setUser, clearUser } = useSwingSDK();
+
+// Simple identification
+identifyUser('user_123');
+
+// With properties
+identifyUser('user_123', {
   email: 'john@example.com',
-  customField: 'premium'  // Custom properties
+  plan: 'premium',
+  signupDate: '2024-01-15'
 });
 
-// Clear user on logout
+// Full user object
+setUser({
+  id: 'user_123',
+  email: 'john@example.com',
+  name: 'John Doe',
+  properties: {
+    plan: 'premium',
+    lastSeen: new Date()
+  }
+});
+
+// Clear user (logout)
 clearUser();
 ```
 
----
+### Privacy Controls
 
-## 📚 API Reference
+```typescript
+const { setRedactedFields, getRedactedFields } = useSwingSDK();
 
-### SwingProvider Props
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `apiKey` | string | Yes | Your project API key |
-| `options.userId` | string | No | User identifier for tracking |
-| `options.sessionId` | string | No | Session identifier for continuity |
+// Get current redacted fields
+const current = getRedactedFields();
+console.log(current); // ['input[type="password"]']
 
-### useSwingSDK Hook
-| Method | Description |
-|--------|-------------|
-| `identifyUser(userId, properties)` | Identify a user with properties |
-| `clearUser()` | Clear the current user |
-| `sendCustomEvent(name, properties)` | Send a custom event |
-| `isInitialized` | Whether the SDK is ready |
+// Add more fields
+setRedactedFields([
+  ...current,
+  '.sensitive',
+  '#secret-div',
+  'input[name="ssn"]'
+]);
 
----
+// Replace all fields
+setRedactedFields([
+  'input[type="password"]',
+  'input[type="email"]',
+  '.payment-form input'
+]);
+```
 
-## 📄 License
-MIT 
+## What Gets Tracked Automatically
+
+### 🖱️ Click Events
+- Button clicks
+- Link clicks  
+- Any element clicks
+- Element details (tag, id, class, text)
+
+### 📝 Form Events
+- Form submissions
+- Field data (respecting redaction)
+- Form metadata (action, method)
+
+### 🧭 Navigation Events
+- Page changes (SPA)
+- Route transitions
+- URL changes
+
+### 📊 Console Events
+- `console.log()`, `console.error()`, `console.warn()`, `console.info()`
+- JavaScript errors and stack traces
+- Unhandled promise rejections
+
+### 🎥 Session Recording
+- DOM changes
+- Mouse movements
+- Scroll events
+- Input interactions (with privacy controls)
+
+## Privacy & Compliance
+
+### Default Privacy
+- ✅ **Passwords masked by default**
+- ✅ **Simple CSS-based redaction**
+- ✅ **No complex configuration needed**
+
+### GDPR/CCPA Ready
+```typescript
+// Redact PII fields
+setRedactedFields([
+  'input[type="email"]',
+  'input[name*="name"]',
+  'input[name*="phone"]',
+  '.pii-data',
+  '[data-sensitive]'
+]);
+```
+
+### Production Best Practices
+```typescript
+<SwingProvider 
+  apiKey={process.env.SWING_API_KEY}
+  options={{
+    redactFields: [
+      // Always redact these in production
+      'input[type="password"]',
+      'input[type="email"]',
+      '.payment-info',
+      '.personal-data',
+      '[data-private]'
+    ]
+  }}
+>
+```
+
+## Comparison
+
+| Feature | Swing SDK | PostHog | Human Behavior |
+|---------|-----------|---------|----------------|
+| Session Recording | ✅ | ✅ | ✅ |
+| Auto Event Tracking | ✅ | ✅ | ✅ |
+| Console Tracking | ✅ | ❌ | ✅ |
+| Simple Privacy | ✅ | ❌ | ✅ |
+| React Integration | ✅ | ✅ | ✅ |
+| Self-Hosted | ✅ | ✅ | ❌ |
+
+## Backend Integration
+
+The SDK sends data to your Swing backend at `/upload`. See the [Backend Documentation](../swing-backend/docs/README.md) for setup instructions.
+
+## Examples
+
+Check out the [Fitia demo app](../fitia/Fitia/) for complete examples of:
+- User login/logout tracking
+- Form submission tracking  
+- Custom business events
+- Privacy redaction
+- Session replay
+
+## Support
+
+- 📖 [Full Documentation](./docs/)
+- 🐛 [Report Issues](https://github.com/your-org/swing/issues)
+- 💬 [Discussions](https://github.com/your-org/swing/discussions)

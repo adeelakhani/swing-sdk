@@ -15,6 +15,8 @@ interface SwingSDKContextType {
   identifyUser: (userId: string, properties?: Record<string, any>) => void;
   clearUser: () => void;
   sendCustomEvent: (name: string, properties?: Record<string, any>) => void;
+  setRedactedFields: (selectors: string[]) => void;
+  getRedactedFields: () => string[];
 }
 
 const SwingSDKContext = createContext<SwingSDKContextType | null>(null);
@@ -25,6 +27,7 @@ interface SwingSDKProviderProps {
   options?: {
     userId?: string;
     sessionId?: string;
+    redactFields?: string[]; // CSS selectors for redaction
   };
 }
 
@@ -60,6 +63,19 @@ export function SwingProvider({
     }
   };
 
+  const setRedactedFields = (selectors: string[]) => {
+    if (typeof window !== 'undefined' && window.swingSDK) {
+      window.swingSDK.setRedactedFields(selectors);
+    }
+  };
+
+  const getRedactedFields = (): string[] => {
+    if (typeof window !== 'undefined' && window.swingSDK) {
+      return window.swingSDK.getRedactedFields();
+    }
+    return [];
+  };
+
   useEffect(() => {
     // Initialize SwingSDK when component mounts
     if (typeof window !== 'undefined' && (window as any).SwingSDK) {
@@ -88,7 +104,9 @@ export function SwingProvider({
       setUser, 
       identifyUser, 
       clearUser, 
-      sendCustomEvent 
+      sendCustomEvent,
+      setRedactedFields,
+      getRedactedFields
     }}>
       {children}
     </SwingSDKContext.Provider>

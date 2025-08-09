@@ -8,6 +8,7 @@ interface SwingSDKOptions {
   apiKey: string;
   userId?: string;
   sessionId?: string;
+  redactFields?: string[]; // CSS selectors for fields to redact (Human Behavior style)
   // rrwebOptions?: Partial<recordOptions<eventWithTime>>; // Disabled for now, enable later if needed
 }
 
@@ -73,6 +74,7 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     apiKey,
     userId,
     sessionId,
+    redactFields = ['input[type="password"]'], // Default: mask passwords
     // rrwebOptions = {}, // Disabled for now, enable later if needed
   } = options;
 
@@ -93,6 +95,35 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   let events: eventWithTime[] = [];
   let stopped = false;
   let stopRecording: (() => void) | undefined;
+
+  // ===== PRIVACY FUNCTIONS (Human Behavior Style) =====
+  let currentRedactFields = [...redactFields];
+
+  function shouldRedactElement(element: Element): boolean {
+    return currentRedactFields.some(selector => {
+      try {
+        return element.matches(selector);
+      } catch (e) {
+        console.warn('SwingSDK: Invalid CSS selector:', selector);
+        return false;
+      }
+    });
+  }
+
+  function redactValue(value: string): string {
+    return '[REDACTED]';
+  }
+
+  // Public function to update redacted fields
+  function setRedactedFields(selectors: string[]) {
+    currentRedactFields = [...selectors];
+    console.log('SwingSDK: Updated redacted fields:', currentRedactFields);
+  }
+
+  // Public function to get current redacted fields
+  function getRedactedFields(): string[] {
+    return [...currentRedactFields];
+  }
 
   // ===== CONSOLE TRACKING =====
   function setupConsoleTracking() {
@@ -202,12 +233,19 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
       const formData = new FormData(form);
       const formFields: Record<string, string> = {};
       
-      // Capture form field data (excluding passwords)
+      // Capture form field data with privacy controls
       for (const [key, value] of formData.entries()) {
         const input = form.querySelector(`[name="${key}"]`) as HTMLInputElement;
-        if (input && input.type !== 'password') {
-          formFields[key] = String(value);
+        if (!input) continue;
+
+        let fieldValue = String(value);
+
+        // Apply redaction if element matches redactFields
+        if (shouldRedactElement(input)) {
+          fieldValue = redactValue(fieldValue);
         }
+
+        formFields[key] = fieldValue;
       }
 
       const eventData: BusinessEvent = {
@@ -280,12 +318,15 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
     console.log('SwingSDK: Custom event sent:', name, properties);
   }
 
-  // Start recording with proper settings for event capture
+  // Start recording with privacy settings
   stopRecording = rrweb.record({
     emit(event: eventWithTime) {
       events.push(event);
       console.log('SwingSDK: Event captured:', event.type, 'at', new Date(event.timestamp).toLocaleTimeString());
     },
+    // Privacy settings (Human Behavior style)
+    blockSelector: currentRedactFields.join(', '), // Block elements matching redactFields
+    maskAllInputs: false, // We handle masking ourselves
     // Take full snapshot every 100 events (reasonable)
     checkoutEveryNth: 100,
     // Take full snapshot every 30 seconds (reasonable)
@@ -407,7 +448,9 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
       setUser,
       identifyUser,
       clearUser,
-      sendCustomEvent
+      sendCustomEvent,
+      setRedactedFields,
+      getRedactedFields
     };
   }
 
@@ -431,6 +474,8 @@ declare global {
       identifyUser: (userId: string, properties?: Record<string, any>) => void;
       clearUser: () => void;
       sendCustomEvent: (name: string, properties?: Record<string, any>) => void;
+      setRedactedFields: (selectors: string[]) => void;
+      getRedactedFields: () => string[];
     };
   }
 }
