@@ -325,9 +325,10 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
       console.log('SwingSDK: Event captured:', event.type, 'at', new Date(event.timestamp).toLocaleTimeString());
     },
     // Privacy settings (CORRECT rrweb options)
-    maskAllInputs: true, // ✅ Mask ALL inputs by default
+    maskAllInputs: false, // ❌ Don't mask all inputs - be selective  
     blockClass: 'swing-no-capture', // ✅ Block elements with this class
     maskTextClass: 'swing-mask', // ✅ Mask text with this class
+    maskTextSelector: 'input[type="password"], .swing-mask', // ✅ Mask specific inputs
     maskInputOptions: {
       color: true,
     },
