@@ -1,6 +1,6 @@
 # Swing SDK
 
-A powerful session recording and user behavior analytics SDK inspired by PostHog and Human Behavior, but built for simplicity and privacy.
+A powerful session recording and user behavior analytics SDK built for simplicity and privacy.
 
 ## Features
 
@@ -49,7 +49,7 @@ function LoginComponent() {
 
 ## Privacy & Redaction
 
-### Simple CSS Selectors (Human Behavior Style)
+### Simple CSS Selectors
 
 ```typescript
 // Initialize with redaction
@@ -272,16 +272,7 @@ setRedactedFields([
 >
 ```
 
-## Comparison
-
-| Feature | Swing SDK | PostHog | Human Behavior |
-|---------|-----------|---------|----------------|
-| Session Recording | ✅ | ✅ | ✅ |
-| Auto Event Tracking | ✅ | ✅ | ✅ |
-| Console Tracking | ✅ | ❌ | ✅ |
-| Simple Privacy | ✅ | ❌ | ✅ |
-| React Integration | ✅ | ✅ | ✅ |
-| Self-Hosted | ✅ | ✅ | ❌ |
+ 
 
 ## Backend Integration
 

@@ -8,7 +8,7 @@ interface SwingSDKOptions {
   apiKey: string;
   userId?: string;
   sessionId?: string;
-  redactFields?: string[]; // CSS selectors for fields to redact (Human Behavior style)
+  redactFields?: string[]; // CSS selectors for fields to redact
   // rrwebOptions?: Partial<recordOptions<eventWithTime>>; // Disabled for now, enable later if needed
 }
 
@@ -96,7 +96,7 @@ function SwingSDK(apiKeyOrOptions: string | SwingSDKOptions) {
   let stopped = false;
   let stopRecording: (() => void) | undefined;
 
-  // ===== PRIVACY FUNCTIONS (Human Behavior Style) =====
+  // ===== PRIVACY FUNCTIONS =====
   let currentRedactFields = [...redactFields];
 
   function shouldRedactElement(element: Element): boolean {
