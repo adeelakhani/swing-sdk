@@ -17,6 +17,10 @@
     "sdk"
   ],
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/adeelakhani/swing-sdk"
+  },
   "dependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
